@@ -13,8 +13,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify source code
+        run: |
+          echo "=== Checking Username field in setup.go ==="
+          grep -n "Username" backend/internal/setup/setup.go || (echo "MISSING Username in setup.go!" && exit 1)
+          echo "=== Checking Username field in config.go ==="
+          grep -n "Username" backend/internal/config/config.go || (echo "MISSING Username in config.go!" && exit 1)
+          echo "=== Checking Username field in redis.go ==="
+          grep -n "Username" backend/internal/repository/redis.go || (echo "MISSING Username in redis.go!" && exit 1)
+          echo "All checks passed!"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -23,19 +36,14 @@ jobs:
           password: ${{ secrets.DOCKER_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          no-cache: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/sub2api:latest
-            ${{ secrets.DOCKER_USERNAME }}/sub2api:${{ github.sha }}
-          build-args: |
-            GOPROXY=https://goproxy.cn,direct
-          platforms: linux/amd64
-
-      # Show build args for debugging
-      - name: Show build args
-        run: echo "Build completed for ${{ github.sha }}"
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --no-cache \
+            --push \
+            --build-arg GOPROXY=https://goproxy.cn,direct \
+            --build-arg CACHE_BUST=$(date +%s) \
+            -t ${{ secrets.DOCKER_USERNAME }}/sub2api:latest \
+            -t ${{ secrets.DOCKER_USERNAME }}/sub2api:${{ github.sha }} \
+            -f Dockerfile \
+            .

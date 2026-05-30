@@ -61,12 +61,21 @@ COPY backend/ ./
 # Copy frontend dist from previous stage (must be after backend copy to avoid being overwritten)
 COPY --from=frontend-builder /app/backend/internal/web/dist ./internal/web/dist
 
+# Debug: verify source code in build context
+RUN echo "=== RedisConfig struct ===" && \
+    grep -A 8 'type RedisConfig struct' internal/setup/setup.go && \
+    echo "=== Redis Username usage ===" && \
+    grep 'Username' internal/setup/setup.go && \
+    echo "=== config RedisConfig ===" && \
+    grep -A 8 'type RedisConfig struct' /app/backend/internal/config/config.go || true
+
 # Build the binary (BuildType=release for CI builds, embed frontend)
 # Version precedence: build arg VERSION > cmd/server/VERSION
 RUN VERSION_VALUE="${VERSION}" && \
     if [ -z "${VERSION_VALUE}" ]; then VERSION_VALUE="$(tr -d '\r\n' < ./cmd/server/VERSION)"; fi && \
     DATE_VALUE="${DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}" && \
     CGO_ENABLED=0 GOOS=linux go build \
+    -a \
     -tags embed \
     -ldflags="-s -w -X main.Version=${VERSION_VALUE} -X main.Commit=${COMMIT} -X main.Date=${DATE_VALUE} -X main.BuildType=release" \
     -trimpath \
