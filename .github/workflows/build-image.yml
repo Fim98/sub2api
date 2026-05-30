@@ -28,8 +28,14 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
+          no-cache: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/sub2api:latest
             ${{ secrets.DOCKER_USERNAME }}/sub2api:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          build-args: |
+            GOPROXY=https://goproxy.cn,direct
+          platforms: linux/amd64
+
+      # Show build args for debugging
+      - name: Show build args
+        run: echo "Build completed for ${{ github.sha }}"
